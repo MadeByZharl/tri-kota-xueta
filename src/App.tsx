@@ -38,7 +38,8 @@ export default function App() {
   const containerRef = useRef<HTMLDivElement>(null);
   
   const [score, setScore] = useState({ left: 0, right: 0 });
-  const [gameState, setGameState] = useState<'menu' | 'playing' | 'goal' | 'gameover'>('menu');
+  const [gameState, setGameState] = useState<'loading' | 'menu' | 'playing' | 'goal' | 'gameover'>('loading');
+  const [loadingProgress, setLoadingProgress] = useState(0);
   const [gameMode, setGameMode] = useState<'single' | 'local' | null>(null);
   const [winner, setWinner] = useState<'Left' | 'Right' | null>(null);
   const [lastScorer, setLastScorer] = useState<'left' | 'right' | null>(null);
@@ -51,24 +52,48 @@ export default function App() {
   // Preload assets for instant rendering
   useEffect(() => {
     const images = [
-      '/HockeyAssets/Play.png',
-      '/HockeyAssets/puck.png',
-      '/HockeyAssets/gates.png',
-      '/HockeyAssets/redgonya.png',
-      '/HockeyAssets/redkaramel.png',
-      '/HockeyAssets/bluekorz.png',
-      '/HockeyAssets/bluekompot.png',
-      '/HockeyAssets/gonya.png',
-      '/HockeyAssets/karamel.png',
-      '/HockeyAssets/korz.png',
-      '/HockeyAssets/kompot.png',
-      '/HockeyAssets/goal1.png',
-      '/HockeyAssets/goal2.png',
-      '/HockeyAssets/star00.png',
-      '/HockeyAssets/star02.png',
+      'HockeyAssets/Play.png',
+      'HockeyAssets/puck.png',
+      'HockeyAssets/gates.png',
+      'HockeyAssets/redgonya.png',
+      'HockeyAssets/redkaramel.png',
+      'HockeyAssets/bluekorz.png',
+      'HockeyAssets/bluekompot.png',
+      'HockeyAssets/gonya.png',
+      'HockeyAssets/karamel.png',
+      'HockeyAssets/korz.png',
+      'HockeyAssets/kompot.png',
+      'HockeyAssets/goal1.png',
+      'HockeyAssets/goal2.png',
+      'HockeyAssets/star00.png',
+      'HockeyAssets/star02.png',
+      'HockeyAssets/winner1.png',
+      'HockeyAssets/winner2.png',
+      'HockeyAssets/fondo1.png',
+      'HockeyAssets/fondo2.jpg',
     ];
+    
+    let loadedCount = 0;
+    const totalAssets = images.length;
+
+    const checkAllLoaded = () => {
+      loadedCount++;
+      const progress = Math.round((loadedCount / totalAssets) * 100);
+      setLoadingProgress(progress);
+      if (loadedCount >= totalAssets) {
+        setTimeout(() => setGameState('menu'), 500); // Небольшая задержка для плавности
+      }
+    };
+
     images.forEach(src => {
       const img = new Image();
+      img.onload = checkAllLoaded;
+      img.onerror = () => {
+        console.error(`Failed to preload image: ${src}. Retrying with absolute path...`);
+        img.src = '/' + src;
+        // Если и это не поможет, все равно считаем как "загружено" (или ошибку), чтобы не висеть вечно
+        img.onerror = checkAllLoaded;
+      };
       img.src = src;
     });
   }, []);
@@ -78,15 +103,16 @@ export default function App() {
   const hitAudios = useRef<HTMLAudioElement[]>([]);
 
   useEffect(() => {
-    goalAudio.current = new Audio('/HockeyAssets/goal.wav');
+    goalAudio.current = new Audio('HockeyAssets/goal.wav');
     goalAudio.current.onerror = () => {
-      console.warn("goal.wav not found, audio will be skipped.");
+      console.warn("goal.wav not found, trying absolute path...");
+      if (goalAudio.current) goalAudio.current.src = '/HockeyAssets/goal.wav';
     };
     hitAudios.current = [
-      new Audio('/HockeyAssets/hit1.mp3'),
-      new Audio('/HockeyAssets/hit2.mp3'),
-      new Audio('/HockeyAssets/hit3.mp3'),
-      new Audio('/HockeyAssets/hit4.mp3')
+      new Audio('HockeyAssets/hit1.mp3'),
+      new Audio('HockeyAssets/hit2.mp3'),
+      new Audio('HockeyAssets/hit3.mp3'),
+      new Audio('HockeyAssets/hit4.mp3')
     ];
   }, []);
 
@@ -150,14 +176,24 @@ export default function App() {
       star00: new Image(),
       star02: new Image()
     };
+    
+    const setAssetSrc = (img: HTMLImageElement, src: string) => {
+      img.src = src;
+      img.onerror = () => {
+        if (!img.src.startsWith('/')) {
+          console.log(`Retrying asset with absolute path: ${src}`);
+          img.src = '/' + src;
+        }
+      };
+    };
 
-    assets.bg.src = '/HockeyAssets/Play.png';
-    assets.puck.src = '/HockeyAssets/puck.png';
-    assets.playerLeft.src = `/HockeyAssets/red${leftPlayer}.png`;
-    assets.playerRight.src = `/HockeyAssets/blue${rightPlayer}.png`;
-    assets.gates.src = '/HockeyAssets/gates.png';
-    assets.star00.src = '/HockeyAssets/star00.png';
-    assets.star02.src = '/HockeyAssets/star02.png';
+    setAssetSrc(assets.bg, 'HockeyAssets/Play.png');
+    setAssetSrc(assets.puck, 'HockeyAssets/puck.png');
+    setAssetSrc(assets.playerLeft, `HockeyAssets/red${leftPlayer}.png`);
+    setAssetSrc(assets.playerRight, `HockeyAssets/blue${rightPlayer}.png`);
+    setAssetSrc(assets.gates, 'HockeyAssets/gates.png');
+    setAssetSrc(assets.star00, 'HockeyAssets/star00.png');
+    setAssetSrc(assets.star02, 'HockeyAssets/star02.png');
 
     let animationFrameId: number;
 
@@ -562,8 +598,13 @@ export default function App() {
             {Array.from({ length: WINNING_SCORE }).map((_, i) => (
               <img 
                 key={`red-star-${i}`}
-                src="/HockeyAssets/star00.png" 
+                src="HockeyAssets/star00.png" 
                 alt="Red Star" 
+                referrerPolicy="no-referrer"
+                onError={(e) => {
+                  const target = e.target as HTMLImageElement;
+                  if (!target.src.includes('/HockeyAssets')) target.src = '/HockeyAssets/star00.png';
+                }}
                 className={`aspect-square object-contain ${i < score.left ? 'star-earned' : 'opacity-40 scale-75 transition-all duration-300'}`}
                 style={{ width: STAR_SIZE }}
               />
@@ -578,8 +619,13 @@ export default function App() {
             {Array.from({ length: WINNING_SCORE }).map((_, i) => (
               <img 
                 key={`blue-star-${i}`}
-                src="/HockeyAssets/star02.png" 
+                src="HockeyAssets/star02.png" 
                 alt="Blue Star" 
+                referrerPolicy="no-referrer"
+                onError={(e) => {
+                  const target = e.target as HTMLImageElement;
+                  if (!target.src.includes('/HockeyAssets')) target.src = '/HockeyAssets/star02.png';
+                }}
                 className={`aspect-square object-contain ${i < score.right ? 'star-earned' : 'opacity-40 scale-75 transition-all duration-300'}`}
                 style={{ width: STAR_SIZE }}
               />
@@ -608,6 +654,25 @@ export default function App() {
       </div>
         
       {/* Overlays */}
+      {gameState === 'loading' && (
+        <div className="absolute inset-0 flex flex-col items-center justify-center bg-[#1a1a1a] z-[100] text-white font-sans">
+          <div className="w-64 h-64 mb-8 relative">
+            <img src="HockeyAssets/puck.png" className="w-full h-full animate-spin" alt="Loading" />
+            <div className="absolute inset-0 flex items-center justify-center text-2xl font-bold">
+              {loadingProgress}%
+            </div>
+          </div>
+          <h2 className="text-2xl font-bold mb-2">Загрузка ресурсов...</h2>
+          <p className="text-gray-400">Файлы сохраняются на ваше устройство для быстрой игры</p>
+          <div className="w-64 h-2 bg-gray-800 rounded-full mt-6 overflow-hidden">
+            <div 
+              className="h-full bg-blue-500 transition-all duration-300" 
+              style={{ width: `${loadingProgress}%` }}
+            />
+          </div>
+        </div>
+      )}
+
       {gameState === 'menu' && (
         <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/80 z-50">
             <h1 
@@ -661,16 +726,28 @@ export default function App() {
               <div className="relative flex flex-col items-center justify-center animate-goal-pop drop-shadow-[0_0_30px_rgba(255,255,255,0.8)]">
                 <img 
                   src={lastScorer === 'left' 
-                    ? `/HockeyAssets/${leftPlayer}.png` 
-                    : `/HockeyAssets/${rightPlayer}.png`} 
+                    ? `HockeyAssets/${leftPlayer}.png` 
+                    : `HockeyAssets/${rightPlayer}.png`} 
                   alt="Champion" 
+                  referrerPolicy="no-referrer"
+                  onError={(e) => {
+                    const target = e.target as HTMLImageElement;
+                    const path = lastScorer === 'left' ? leftPlayer : rightPlayer;
+                    if (!target.src.includes('/HockeyAssets')) target.src = `/HockeyAssets/${path}.png`;
+                  }}
                   className="absolute -top-6 md:-top-8 left-1/2 -translate-x-1/2 h-40 md:h-48 object-contain z-20"
                 />
                 <img 
                   src={lastScorer === 'left' 
-                    ? '/HockeyAssets/goal1.png' 
-                    : '/HockeyAssets/goal2.png'} 
+                    ? 'HockeyAssets/goal1.png' 
+                    : 'HockeyAssets/goal2.png'} 
                   alt="ГОЛ!" 
+                  referrerPolicy="no-referrer"
+                  onError={(e) => {
+                    const target = e.target as HTMLImageElement;
+                    const path = lastScorer === 'left' ? 'goal1.png' : 'goal2.png';
+                    if (!target.src.includes('/HockeyAssets')) target.src = `/HockeyAssets/${path}`;
+                  }}
                   className="h-64 md:h-80 object-contain relative z-10"
                 />
               </div>
@@ -682,13 +759,19 @@ export default function App() {
         <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/80 z-50">
             {winner && (
               <div className="relative">
-                <img src="/HockeyAssets/star02.png" className="absolute -top-10 -left-10 w-24 h-24 animate-[spin_4s_linear_infinite]" alt="star" />
-                <img src="/HockeyAssets/star02.png" className="absolute -top-10 -right-10 w-24 h-24 animate-[spin_4s_linear_infinite]" alt="star" />
+                <img src="HockeyAssets/star02.png" referrerPolicy="no-referrer" className="absolute -top-10 -left-10 w-24 h-24 animate-[spin_4s_linear_infinite]" alt="star" />
+                <img src="HockeyAssets/star02.png" referrerPolicy="no-referrer" className="absolute -top-10 -right-10 w-24 h-24 animate-[spin_4s_linear_infinite]" alt="star" />
                 <img 
                   src={winner === 'Left' 
-                    ? '/HockeyAssets/winner1.png' 
-                    : '/HockeyAssets/winner2.png'} 
+                    ? 'HockeyAssets/winner1.png' 
+                    : 'HockeyAssets/winner2.png'} 
                   alt="Champion" 
+                  referrerPolicy="no-referrer"
+                  onError={(e) => {
+                    const target = e.target as HTMLImageElement;
+                    const path = winner === 'Left' ? 'winner1.png' : 'winner2.png';
+                    if (!target.src.includes('/HockeyAssets')) target.src = `/HockeyAssets/${path}`;
+                  }}
                   className="h-96 object-contain mb-8 drop-shadow-[0_0_30px_rgba(255,255,255,0.8)]"
                 />
               </div>
